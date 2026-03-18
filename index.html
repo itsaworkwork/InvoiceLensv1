@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InvoiceLens — Canadian HST Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:#1a1a18;--paper:#f5f0e8;--cream:#ede7d7;
+  --rust:#c95f2a;--sage:#4a6741;--light:#faf7f1;
+  --border:#d4c9b0;--muted:#8a8070;--red:#c0392b;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--paper);color:var(--ink);font-family:'Fraunces',Georgia,serif;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");}
+.app{position:relative;z-index:1;max-width:980px;margin:0 auto;padding:48px 24px;}
+
+header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:40px;border-bottom:2px solid var(--ink);padding-bottom:22px;flex-wrap:wrap;gap:12px;}
+.logo-area h1{font-size:2.4rem;font-weight:700;letter-spacing:-0.02em;line-height:1;}
+.logo-area h1 span{color:var(--rust);}
+.logo-area p{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);margin-top:5px;letter-spacing:.08em;text-transform:uppercase;}
+.badge{background:var(--sage);color:white;font-family:'DM Mono',monospace;font-size:.62rem;padding:4px 10px;border-radius:2px;letter-spacing:.1em;text-transform:uppercase;}
+
+#sheets-banner{background:var(--light);border:2px solid var(--border);border-radius:4px;padding:18px 22px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;transition:all .3s;}
+#sheets-banner.connected{border-color:var(--sage);background:#f0f5ee;}
+#sheets-banner.bnerror{border-color:var(--red);background:#fdf0ee;}
+.banner-left{display:flex;align-items:center;gap:14px;}
+.banner-icon{font-size:1.7rem;}
+.banner-text strong{display:block;font-size:.95rem;}
+.banner-text span{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);}
+.banner-text span.ok{color:var(--sage);font-weight:500;}
+.banner-text span.berr{color:var(--red);}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(26,26,24,.65);z-index:200;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px);}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--light);border:2px solid var(--ink);border-radius:6px;max-width:660px;width:100%;max-height:92vh;overflow-y:auto;padding:36px;position:relative;animation:popIn .2s ease;}
+@keyframes popIn{from{transform:scale(.96);opacity:0;}to{transform:scale(1);opacity:1;}}
+.modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--muted);line-height:1;}
+.modal-close:hover{color:var(--ink);}
+.modal h2{font-size:1.4rem;font-weight:700;margin-bottom:4px;}
+.modal .subtitle{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);margin-bottom:24px;letter-spacing:.06em;text-transform:uppercase;}
+
+.steps{display:flex;gap:6px;margin-bottom:28px;align-items:center;}
+.step-dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);flex-shrink:0;transition:all .2s;}
+.step-dot.active{border-color:var(--rust);background:var(--rust);color:white;}
+.step-dot.done{border-color:var(--sage);background:var(--sage);color:white;}
+.step-line{flex:1;height:2px;background:var(--border);}
+.step-line.done{background:var(--sage);}
+.step-panel{display:none;}
+.step-panel.active{display:block;}
+.step-panel h3{font-size:1.05rem;font-weight:600;margin-bottom:10px;}
+.step-panel p,.step-panel li{font-family:'DM Mono',monospace;font-size:.74rem;color:#444;line-height:1.9;}
+.step-panel ol,.step-panel ul{padding-left:18px;margin:10px 0;}
+.step-panel a{color:var(--sage);}
+code{background:var(--cream);border:1px solid var(--border);padding:2px 7px;border-radius:3px;font-family:'DM Mono',monospace;font-size:.72rem;word-break:break-all;}
+
+.code-block{background:#1a1a18;color:#e8e0d0;border-radius:4px;padding:14px;font-family:'DM Mono',monospace;font-size:.67rem;line-height:1.7;margin:12px 0;overflow-x:auto;white-space:pre;}
+.copy-code-btn{display:block;margin-bottom:10px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#e8e0d0;font-family:'DM Mono',monospace;font-size:.65rem;padding:5px 12px;border-radius:2px;cursor:pointer;letter-spacing:.05em;width:fit-content;}
+.copy-code-btn:hover{background:rgba(255,255,255,.22);}
+
+.info-box{background:#fffbf0;border:1px solid #c9a227;border-radius:3px;padding:12px 14px;font-family:'DM Mono',monospace;font-size:.7rem;color:#7a5c00;margin:14px 0;line-height:1.75;}
+.info-box.green{background:#f0f5ee;border-color:var(--sage);color:#2d4a27;}
+.info-box.red{background:#fdf0ee;border-color:var(--red);color:#7a1e1e;}
+.info-box.blue{background:#eff6ff;border-color:#93c5fd;color:#1e40af;}
+
+.field-group{margin-bottom:16px;}
+.field-group label{display:block;font-family:'DM Mono',monospace;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.field-group input{width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:3px;background:white;font-family:'DM Mono',monospace;font-size:.8rem;color:var(--ink);outline:none;transition:border-color .15s;}
+.field-group input:focus{border-color:var(--rust);}
+.field-group .hint{font-family:'DM Mono',monospace;font-size:.64rem;color:var(--muted);margin-top:4px;}
+
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border:2px solid var(--ink);background:var(--ink);color:var(--paper);font-family:'DM Mono',monospace;font-size:.78rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all .15s;white-space:nowrap;}
+.btn:hover{background:var(--rust);border-color:var(--rust);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn:disabled:hover{background:var(--ink);border-color:var(--ink);}
+.btn-outline{background:transparent;color:var(--ink);}
+.btn-outline:hover{background:var(--ink);color:var(--paper);}
+.btn-green{background:var(--sage);border-color:var(--sage);}
+.btn-green:hover{background:#3a5432;border-color:#3a5432;}
+.btn-sm{padding:7px 14px;font-size:.7rem;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;flex-wrap:wrap;}
+
+.upload-section{background:var(--light);border:2px dashed var(--border);border-radius:4px;padding:44px 32px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;margin-bottom:28px;}
+.upload-section:hover,.upload-section.drag-over{border-color:var(--rust);background:#fdf8f0;}
+.upload-section.drag-over::after{content:'Drop here!';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:var(--rust);background:rgba(201,95,42,.06);}
+.upload-icon{width:54px;height:54px;margin:0 auto 14px;background:var(--cream);border:2px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;}
+.upload-section h2{font-size:1.2rem;font-weight:600;margin-bottom:6px;}
+.upload-section p{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);}
+.upload-section input{display:none;}
+
+#preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;margin-bottom:20px;}
+.thumb-wrap{position:relative;aspect-ratio:1;cursor:pointer;}
+.thumb-wrap img{width:100%;height:100%;object-fit:cover;border-radius:3px;border:2px solid var(--border);transition:border-color .15s;display:block;}
+.thumb-wrap:hover img{border-color:var(--rust);}
+.thumb-remove{position:absolute;top:-6px;right:-6px;width:20px;height:20px;background:var(--red);color:white;border:none;border-radius:50%;font-size:.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
+
+#analyze-bar{display:none;text-align:center;margin-bottom:36px;}
+#analyze-bar p{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);margin-top:8px;}
+
+#results{margin-top:36px;}
+#results-heading{font-size:1.1rem;font-weight:600;margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#results-heading small{font-family:'DM Mono',monospace;font-size:.64rem;color:var(--muted);font-weight:400;}
+.invoice-card{background:white;border:1px solid var(--border);border-radius:4px;margin-bottom:20px;overflow:hidden;animation:slideIn .3s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+.card-header{background:var(--ink);color:var(--paper);padding:11px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+.card-header strong{font-size:.95rem;}
+.card-header .meta{font-family:'DM Mono',monospace;font-size:.66rem;opacity:.55;}
+.push-status{font-family:'DM Mono',monospace;font-size:.63rem;padding:3px 8px;border-radius:2px;background:rgba(255,255,255,.1);}
+.push-status.pushed{background:rgba(74,103,65,.6);}
+.card-body{display:flex;}
+.card-preview{width:140px;min-width:140px;background:var(--cream);border-right:1px solid var(--border);overflow:hidden;cursor:zoom-in;flex-shrink:0;position:relative;}
+.card-preview img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s;}
+.card-preview:hover img{transform:scale(1.04);}
+.card-preview .zoom-hint{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(26,26,24,.65);color:white;font-family:'DM Mono',monospace;font-size:.55rem;padding:2px 6px;border-radius:2px;white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none;}
+.card-preview:hover .zoom-hint{opacity:1;}
+.card-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));flex:1;}
+.field{padding:13px 17px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+.field:last-child{border-right:none;}
+.field label{display:block;font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+.field .val{font-size:.9rem;font-weight:600;}
+.field.blurb-field{grid-column:1/-1;border-right:none;}
+.field.blurb-field .val{font-weight:400;font-style:italic;color:#555;font-size:.86rem;}
+.val[contenteditable="true"]{outline:none;border-bottom:1px dashed var(--rust);cursor:text;min-width:10px;}
+.amount{color:var(--sage);}
+.hst-v{color:var(--rust);}
+.card-actions{padding:11px 17px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;align-items:center;}
+.card-actions .err-msg{font-family:'DM Mono',monospace;font-size:.66rem;color:var(--red);flex:1;}
+
+.loading-card{background:white;border:1px solid var(--border);border-radius:4px;padding:24px;text-align:center;margin-bottom:18px;}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--rust);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-card p{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);}
+
+#push-all-bar{display:none;background:var(--cream);border:1px solid var(--border);border-radius:4px;padding:18px 22px;margin-top:24px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+#push-all-bar p{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);}
+
+#lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:500;align-items:center;justify-content:center;cursor:zoom-out;}
+#lightbox.open{display:flex;}
+#lightbox img{max-width:92vw;max-height:92vh;object-fit:contain;border-radius:4px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+#lightbox-close{position:fixed;top:20px;right:24px;background:none;border:none;color:white;font-size:2rem;cursor:pointer;line-height:1;opacity:.8;}
+#lightbox-close:hover{opacity:1;}
+
+#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--paper);font-family:'DM Mono',monospace;font-size:.75rem;padding:11px 22px;border-radius:3px;opacity:0;transition:all .25s;pointer-events:none;z-index:999;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#toast.success{background:var(--sage);}
+#toast.err{background:var(--red);}
+
+@media(max-width:620px){
+  .app{padding:24px 14px;}
+  .logo-area h1{font-size:1.9rem;}
+  .card-body{flex-direction:column;}
+  .card-preview{width:100%;min-width:unset;height:160px;border-right:none;border-bottom:1px solid var(--border);}
+  .card-fields{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo-area">
+      <h1>Invoice<span>Lens</span></h1>
+      <p>Canadian HST · AI-Powered · Google Sheets Sync</p>
+    </div>
+    <div class="badge">🍁 Canada / HST</div>
+  </header>
+
+  <div id="sheets-banner">
+    <div class="banner-left">
+      <div class="banner-icon">📊</div>
+      <div class="banner-text">
+        <strong>Google Sheets</strong>
+        <span id="banner-status">Not connected — click to set up (~3 min)</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-sm" id="setup-btn" onclick="openSetup()">⚙ Connect Sheets</button>
+      <button class="btn btn-sm btn-outline" id="disconnect-btn" onclick="disconnectSheets()" style="display:none;">✕ Disconnect</button>
+    </div>
+  </div>
+
+  <div class="upload-section" id="drop-zone">
+    <div class="upload-icon">📄</div>
+    <h2>Drop invoices or receipts here</h2>
+    <p>JPG · PNG · HEIC · Multiple files at once</p>
+    <input type="file" id="file-input" accept="image/*" multiple>
+    <button class="btn" style="margin-top:18px;" onclick="document.getElementById('file-input').click()">＋ Choose Files</button>
+  </div>
+
+  <div id="preview-grid"></div>
+
+  <div id="analyze-bar">
+    <button class="btn" id="analyze-btn" onclick="analyzeAll()">🔍 Analyze All Invoices</button>
+    <p><span id="file-count">0</span> file(s) queued · AI will extract all fields</p>
+  </div>
+
+  <div id="results"></div>
+
+  <div id="push-all-bar">
+    <p><strong id="push-summary">0 invoices</strong> ready to sync</p>
+    <button class="btn btn-green" id="push-all-btn" onclick="pushAllToSheets()">📤 Push All to Google Sheets</button>
+  </div>
+</div>
+
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">×</button>
+  <img id="lightbox-img" src="" alt="Invoice preview">
+</div>
+
+<!-- SETUP MODAL -->
+<div class="modal-overlay" id="setup-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeSetup()">×</button>
+    <h2>Connect Google Sheets</h2>
+    <div class="subtitle">Via Google Apps Script · No login popup · ~3 minutes</div>
+    <div class="steps">
+      <div class="step-dot active" id="sd1">1</div><div class="step-line" id="sl1"></div>
+      <div class="step-dot" id="sd2">2</div><div class="step-line" id="sl2"></div>
+      <div class="step-dot" id="sd3">3</div><div class="step-line" id="sl3"></div>
+      <div class="step-dot" id="sd4">4</div>
+    </div>
+
+    <div class="step-panel active" id="step1">
+      <h3>Step 1 — Open your Google Sheet</h3>
+      <ol>
+        <li>Go to <a href="https://sheets.google.com" target="_blank">sheets.google.com</a> and open your spreadsheet (or create a blank one)</li>
+        <li>In the menu bar click <strong>Extensions</strong></li>
+        <li>Click <strong>Apps Script</strong> — a new tab opens with a code editor</li>
+      </ol>
+      <div class="info-box">💡 Everything runs inside your own Google account. InvoiceLens never sees your credentials.</div>
+      <div class="modal-actions"><button class="btn" onclick="goStep(2)">Next →</button></div>
+    </div>
+
+    <div class="step-panel" id="step2">
+      <h3>Step 2 — Paste the script</h3>
+      <ol>
+        <li>In the Apps Script editor press <strong>Ctrl+A</strong> to select all existing code</li>
+        <li>Click <strong>📋 Copy Script</strong> below, then paste with <strong>Ctrl+V</strong></li>
+        <li>Press <strong>Ctrl+S</strong> to save (name the project anything)</li>
+      </ol>
+      <div id="modal-code-block" class="code-block">
+        <button class="copy-code-btn" onclick="copyScript()">📋 Copy Script</button>
+        <span id="script-display"></span>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="goStep(1)">← Back</button>
+        <button class="btn" onclick="goStep(3)">Next →</button>
+      </div>
+    </div>
+
+    <div class="step-panel" id="step3">
+      <h3>Step 3 — Deploy as a Web App</h3>
+      <ol>
+        <li>Click the blue <strong>Deploy</strong> button (top right of the editor)</li>
+        <li>Choose <strong>New deployment</strong></li>
+        <li>Click the <strong>⚙ gear icon</strong> next to "Select type" → pick <strong>Web app</strong></li>
+        <li>Set: <strong>Execute as:</strong> <code>Me</code> &nbsp;·&nbsp; <strong>Who has access:</strong> <code>Anyone</code></li>
+        <li>Click <strong>Deploy</strong> → <strong>Authorize access</strong> → sign in → Allow</li>
+        <li>Copy the <strong>Web app URL</strong> (starts with <code>https://script.google.com/macros/s/</code>)</li>
+      </ol>
+      <div class="info-box">⚠ Keep this URL private — anyone with it can add rows to your sheet.</div>
+      <div class="info-box blue">🔄 <strong>Updated the script?</strong> You must create a <strong>New deployment</strong> each time — not "Manage deployments".</div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="goStep(2)">← Back</button>
+        <button class="btn" onclick="goStep(4)">Next →</button>
+      </div>
+    </div>
+
+    <div class="step-panel" id="step4">
+      <h3>Step 4 — Paste your Web App URL</h3>
+      <div class="field-group" style="margin-top:14px;">
+        <label>Apps Script Web App URL</label>
+        <input type="text" id="webhook-url-input" placeholder="https://script.google.com/macros/s/ABC.../exec">
+        <div class="hint">Must contain script.google.com/macros/s/ and end with /exec</div>
+      </div>
+      <div id="url-ok" style="display:none;" class="info-box green">✓ URL saved! InvoiceLens is now linked to your Google Sheet.</div>
+      <div id="url-err" style="display:none;" class="info-box red">✗ That URL doesn't look right. It must start with <code>https://script.google.com/macros/s/</code> and end with <code>/exec</code>.</div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="goStep(3)">← Back</button>
+        <button class="btn btn-green" onclick="finishSetup()">✓ Save &amp; Connect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── Apps Script source (JSONP / doGet version) ───────────────────────
+// NOTE: This uses doGet + JSONP which is the only fully CORS-free method
+// when calling Apps Script from a browser.
+// The manual "Run" button in the editor will show an error because there
+// is no event object — that is normal and expected. Test by deploying and
+// calling the URL directly instead.
+const SCRIPT_CODE = [
+  'const SHEET_NAME = "Invoices";',
+  '',
+  'function doGet(e) {',
+  '  try {',
+  '    var cb  = (e && e.parameter && e.parameter.callback) || "cb";',
+  '    var raw = (e && e.parameter && e.parameter.data) || "";',
+  '',
+  '    if (!raw) {',
+  '      return wrap(cb, { status: "InvoiceLens active" });',
+  '    }',
+  '',
+  '    var rows = JSON.parse(decodeURIComponent(raw));',
+  '    var ss   = SpreadsheetApp.getActiveSpreadsheet();',
+  '    var sheet = ss.getSheetByName(SHEET_NAME);',
+  '    if (!sheet) { sheet = ss.insertSheet(SHEET_NAME); }',
+  '',
+  '    if (sheet.getLastRow() === 0) {',
+  '      sheet.appendRow(["Date","Company","Category","Subtotal",',
+  '        "HST Paid","Total","HST Number",',
+  '        "Expense Blurb","Source File","Pushed At"]);',
+  '      sheet.getRange(1,1,1,10)',
+  '           .setFontWeight("bold")',
+  '           .setBackground("#1a1a18")',
+  '           .setFontColor("#f5f0e8");',
+  '      sheet.setFrozenRows(1);',
+  '    }',
+  '',
+  '    var list = Array.isArray(rows) ? rows : [rows];',
+  '    list.forEach(function(row) {',
+  '      sheet.appendRow([',
+  '        row.date||"", row.company||"", row.category||"",',
+  '        row.subtotal||"", row.hst||"", row.total||"",',
+  '        row.hst_number||"", row.blurb||"",',
+  '        row.filename||"", new Date().toLocaleString("en-CA")',
+  '      ]);',
+  '    });',
+  '',
+  '    return wrap(cb, { success: true, rows: list.length });',
+  '',
+  '  } catch(err) {',
+  '    var cb2 = (e && e.parameter && e.parameter.callback) || "cb";',
+  '    return wrap(cb2, { success: false, error: err.message });',
+  '  }',
+  '}',
+  '',
+  'function wrap(cb, obj) {',
+  '  return ContentService',
+  '    .createTextOutput(cb + "(" + JSON.stringify(obj) + ")")',
+  '    .setMimeType(ContentService.MimeType.JAVASCRIPT);',
+  '}'
+].join('\n');
+
+// Render script into the modal display block
+document.getElementById('script-display').textContent = SCRIPT_CODE;
+
+function copyScript() {
+  navigator.clipboard.writeText(SCRIPT_CODE)
+    .then(() => toast('✓ Script copied to clipboard!', 'success'))
+    .catch(() => {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea');
+      ta.value = SCRIPT_CODE;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      toast('✓ Script copied!', 'success');
+    });
+}
+
+// ─── State ────────────────────────────────────────────────────────────
+let webhookUrl = localStorage.getItem('invoicelens_webhook') || '';
+let results = [];
+const files = [];
+const filePreviews = [];
+
+// ─── Banner ───────────────────────────────────────────────────────────
+function updateBanner(state) {
+  const banner = document.getElementById('sheets-banner');
+  const status = document.getElementById('banner-status');
+  const disc   = document.getElementById('disconnect-btn');
+  const setup  = document.getElementById('setup-btn');
+  if (webhookUrl) {
+    banner.className = state === 'error' ? 'bnerror' : 'connected';
+    status.className = state === 'error' ? 'berr' : 'ok';
+    status.textContent = state === 'error'
+      ? '⚠ Push failed — check your Apps Script deployment'
+      : '✓ Connected via Apps Script — ready to push invoices';
+    setup.textContent = '⚙ Reconfigure';
+    disc.style.display = 'inline-flex';
+  } else {
+    banner.className = '';
+    status.className = '';
+    status.textContent = 'Not connected — click to set up (~3 min)';
+    setup.textContent = '⚙ Connect Sheets';
+    disc.style.display = 'none';
+  }
+}
+
+function disconnectSheets() {
+  if (!confirm('Disconnect Google Sheets?')) return;
+  webhookUrl = '';
+  localStorage.removeItem('invoicelens_webhook');
+  updateBanner();
+  toast('Disconnected');
+}
+
+// ─── Setup Modal ──────────────────────────────────────────────────────
+function openSetup() {
+  if (webhookUrl) document.getElementById('webhook-url-input').value = webhookUrl;
+  document.getElementById('url-ok').style.display = 'none';
+  document.getElementById('url-err').style.display = 'none';
+  goStep(webhookUrl ? 4 : 1);
+  document.getElementById('setup-modal').classList.add('open');
+}
+function closeSetup() { document.getElementById('setup-modal').classList.remove('open'); }
+
+function goStep(n) {
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('step' + i).classList.toggle('active', i === n);
+    document.getElementById('sd' + i).className = 'step-dot' + (i < n ? ' done' : i === n ? ' active' : '');
+    if (i < 4) document.getElementById('sl' + i).className = 'step-line' + (i < n ? ' done' : '');
+  }
+}
+
+function finishSetup() {
+  const url = document.getElementById('webhook-url-input').value.trim();
+  document.getElementById('url-ok').style.display = 'none';
+  document.getElementById('url-err').style.display = 'none';
+  if (!url || !url.includes('script.google.com/macros/s/') || !url.endsWith('/exec')) {
+    document.getElementById('url-err').style.display = 'block';
+    return;
+  }
+  webhookUrl = url;
+  localStorage.setItem('invoicelens_webhook', url);
+  document.getElementById('url-ok').style.display = 'block';
+  updateBanner();
+  setTimeout(() => { closeSetup(); toast('✓ Google Sheets connected!', 'success'); }, 1000);
+}
+
+// ─── File Handling ────────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFiles([...e.dataTransfer.files]); });
+document.getElementById('file-input').addEventListener('change', e => { handleFiles([...e.target.files]); e.target.value = ''; });
+
+function handleFiles(newFiles) {
+  newFiles.forEach(f => {
+    if (!f.type.startsWith('image/')) return;
+    const idx = files.length;
+    files.push(f);
+    const blobUrl = URL.createObjectURL(f);
+    filePreviews.push(blobUrl);
+    const wrap = document.createElement('div');
+    wrap.className = 'thumb-wrap';
+    wrap.innerHTML =
+      '<img src="' + blobUrl + '" alt="' + f.name + '" onclick="openLightbox(\'' + blobUrl + '\')">' +
+      '<button class="thumb-remove" onclick="removeFile(' + idx + ',this)" title="Remove">×</button>';
+    document.getElementById('preview-grid').appendChild(wrap);
+  });
+  updateFileCount();
+}
+
+function removeFile(idx, btn) {
+  files[idx] = null;
+  filePreviews[idx] = null;
+  btn.closest('.thumb-wrap').remove();
+  updateFileCount();
+}
+
+function updateFileCount() {
+  const count = files.filter(Boolean).length;
+  document.getElementById('file-count').textContent = count;
+  document.getElementById('analyze-bar').style.display = count ? 'block' : 'none';
+}
+
+async function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// ─── Lightbox ─────────────────────────────────────────────────────────
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// ─── AI Analysis ──────────────────────────────────────────────────────
+async function analyzeAll() {
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true; btn.textContent = '⏳ Analyzing…';
+  results = [];
+  const container = document.getElementById('results');
+  container.innerHTML = '<div id="results-heading">📋 Extracted Data <small>click any field to edit inline</small></div>';
+
+  const activeFiles = files
+    .map((f, i) => f ? { file: f, preview: filePreviews[i] } : null)
+    .filter(Boolean);
+
+  for (let i = 0; i < activeFiles.length; i++) {
+    const { file, preview } = activeFiles[i];
+    const lid = 'load-' + i;
+    container.insertAdjacentHTML('beforeend',
+      '<div class="loading-card" id="' + lid + '">' +
+        '<div class="spinner"></div>' +
+        '<p>Analyzing ' + (i+1) + ' / ' + activeFiles.length + ': ' + file.name + '</p>' +
+      '</div>');
+    try {
+      const b64 = await fileToBase64(file);
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: 'You are an expert Canadian bookkeeper. Extract invoice/receipt data and return ONLY valid JSON — no markdown fences, no explanation, no extra text. Use exactly: {"company":"vendor name","date":"YYYY-MM-DD","category":"one of: Meals & Entertainment|Office Supplies|Travel|Software & Subscriptions|Professional Services|Marketing|Utilities|Equipment|Other","subtotal":0.00,"hst":0.00,"total":0.00,"hst_number":"HST registration number if visible, otherwise null","blurb":"1-2 sentence description of what was purchased and why it is a business expense"} HST rules: use exact line-item if visible. Ontario=13%, Maritime provinces=15%, other provinces may show 5% GST. If no tax shown set hst to 0.',
+          messages: [{ role: 'user', content: [
+            { type: 'image', source: { type: 'base64', media_type: file.type, data: b64 } },
+            { type: 'text', text: 'Extract all invoice data. Return only the JSON object.' }
+          ]}]
+        })
+      });
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error.message || 'API error');
+      const rawText = (data.content || []).find(c => c.type === 'text')?.text || '{}';
+      const cleaned = rawText.replace(/^```[\w]*\n?/, '').replace(/\n?```$/, '').trim();
+      const parsed = JSON.parse(cleaned);
+      parsed._filename = file.name;
+      parsed._index = results.length;
+      parsed._pushed = false;
+      parsed._preview = preview;
+      results.push(parsed);
+      const lel = document.getElementById(lid);
+      if (lel) lel.remove();
+      renderCard(parsed, results.length - 1);
+    } catch(err) {
+      const lel = document.getElementById(lid);
+      if (lel) lel.remove();
+      container.insertAdjacentHTML('beforeend',
+        '<div class="invoice-card">' +
+          '<div class="card-header"><strong>' + escHtml(file.name) + '</strong><span class="meta">Analysis failed</span></div>' +
+          '<div style="padding:16px;font-family:\'DM Mono\',monospace;font-size:.72rem;color:var(--red);">⚠ Could not analyze — ensure the image clearly shows a receipt or invoice.<br>' +
+          '<small style="color:var(--muted);margin-top:4px;display:block;">' + escHtml(err.message) + '</small></div>' +
+        '</div>');
+    }
+  }
+
+  btn.disabled = false; btn.textContent = '✓ Done — Analyze More';
+  if (results.length > 0) {
+    document.getElementById('push-summary').textContent = results.length + ' invoice' + (results.length !== 1 ? 's' : '');
+    const bar = document.getElementById('push-all-bar');
+    bar.style.display = 'flex';
+    bar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+// ─── Render Card ──────────────────────────────────────────────────────
+function renderCard(d, idx) {
+  const fmt = n => (n === null || n === undefined || n === '') ? '—' : (isNaN(+n) ? n : '$' + (+n).toFixed(2));
+  const previewSrc = d._preview || '';
+  const previewHtml = previewSrc
+    ? '<div class="card-preview" onclick="openLightbox(\'' + previewSrc + '\')" title="Click to enlarge">' +
+        '<img src="' + previewSrc + '" alt="Invoice image">' +
+        '<div class="zoom-hint">🔍 Click to enlarge</div>' +
+      '</div>'
+    : '';
+  const hstNumHtml = (d.hst_number && d.hst_number !== 'null')
+    ? '<div class="field"><label>HST Reg #</label><div class="val" style="font-family:\'DM Mono\',monospace;font-size:.76rem;">' + escHtml(d.hst_number) + '</div></div>'
+    : '';
+  const pushBtnHtml = webhookUrl
+    ? '<button class="btn btn-sm btn-green" id="push-btn-' + idx + '" onclick="pushOne(' + idx + ')">📤 Push to Sheets</button>'
+    : '<button class="btn btn-sm btn-outline" onclick="openSetup()">⚙ Connect Sheets to push</button>';
+
+  document.getElementById('results').insertAdjacentHTML('beforeend',
+    '<div class="invoice-card" id="card-' + idx + '">' +
+      '<div class="card-header">' +
+        '<strong>' + escHtml(d.company || 'Unknown Vendor') + '</strong>' +
+        '<div style="display:flex;align-items:center;gap:10px;">' +
+          '<span class="meta">' + escHtml(d._filename) + '</span>' +
+          '<span class="push-status" id="push-status-' + idx + '">Not pushed</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card-body">' +
+        previewHtml +
+        '<div class="card-fields">' +
+          '<div class="field"><label>Date</label><div class="val" contenteditable="true" data-idx="' + idx + '" data-field="date">' + escHtml(d.date || '—') + '</div></div>' +
+          '<div class="field"><label>Category</label><div class="val" contenteditable="true" data-idx="' + idx + '" data-field="category">' + escHtml(d.category || '—') + '</div></div>' +
+          '<div class="field"><label>Subtotal</label><div class="val amount" contenteditable="true" data-idx="' + idx + '" data-field="subtotal">' + fmt(d.subtotal) + '</div></div>' +
+          '<div class="field"><label>HST Paid 🍁</label><div class="val hst-v" contenteditable="true" data-idx="' + idx + '" data-field="hst">' + fmt(d.hst) + '</div></div>' +
+          '<div class="field"><label>Total</label><div class="val amount" contenteditable="true" data-idx="' + idx + '" data-field="total">' + fmt(d.total) + '</div></div>' +
+          hstNumHtml +
+          '<div class="field blurb-field"><label>Expense Blurb</label><div class="val" contenteditable="true" data-idx="' + idx + '" data-field="blurb">' + escHtml(d.blurb || '—') + '</div></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card-actions">' +
+        '<span class="err-msg" id="card-err-' + idx + '"></span>' +
+        pushBtnHtml +
+      '</div>' +
+    '</div>');
+
+  document.querySelectorAll('[data-idx="' + idx + '"]').forEach(el => {
+    el.addEventListener('blur', () => {
+      let v = el.textContent.trim().replace(/^\$/, '');
+      if (v === '—') v = '';
+      results[idx][el.dataset.field] = v;
+    });
+  });
+}
+
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── Push to Sheets (JSONP — fully CORS-free) ─────────────────────────
+function buildRow(d) {
+  const fmt = n => (n === null || n === undefined || n === '') ? '' : (isNaN(+n) ? String(n) : (+n).toFixed(2));
+  return {
+    date:       d.date       || '',
+    company:    d.company    || '',
+    category:   d.category   || '',
+    subtotal:   fmt(d.subtotal),
+    hst:        fmt(d.hst),
+    total:      fmt(d.total),
+    hst_number: (d.hst_number && d.hst_number !== 'null') ? d.hst_number : '',
+    blurb:      d.blurb      || '',
+    filename:   d._filename  || ''
+  };
+}
+
+function sendToSheet(rows) {
+  return new Promise((resolve, reject) => {
+    const cbName = '_ilcb_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const encoded = encodeURIComponent(JSON.stringify(rows));
+    const url = webhookUrl + '?data=' + encoded + '&callback=' + cbName;
+
+    // If payload too large, split and send recursively
+    if (url.length > 7500 && rows.length > 1) {
+      const mid = Math.ceil(rows.length / 2);
+      resolve(sendToSheet(rows.slice(0, mid)).then(() => sendToSheet(rows.slice(mid))));
+      return;
+    }
+
+    const script = document.createElement('script');
+    let settled = false;
+
+    const cleanup = () => {
+      settled = true;
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+
+    window[cbName] = function(data) {
+      cleanup();
+      if (data && data.success === false) {
+        reject(new Error(data.error || 'Apps Script returned an error'));
+      } else {
+        resolve(data);
+      }
+    };
+
+    script.onerror = function() {
+      if (settled) return;
+      cleanup();
+      reject(new Error('Could not reach Apps Script — check your Web App URL and that "Who has access" is set to Anyone'));
+    };
+
+    setTimeout(function() {
+      if (settled) return;
+      cleanup();
+      reject(new Error('Request timed out — check your Apps Script is deployed and accessible'));
+    }, 15000);
+
+    script.src = url;
+    document.head.appendChild(script);
+  });
+}
+
+async function pushOne(idx) {
+  if (!webhookUrl) { openSetup(); return; }
+  const d = results[idx];
+  const btn = document.getElementById('push-btn-' + idx);
+  const errEl = document.getElementById('card-err-' + idx);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Pushing…'; }
+  if (errEl) errEl.textContent = '';
+  try {
+    await sendToSheet([buildRow(d)]);
+    d._pushed = true;
+    if (btn) { btn.textContent = '✓ Pushed'; btn.style.background = 'var(--sage)'; btn.style.borderColor = 'var(--sage)'; }
+    const s = document.getElementById('push-status-' + idx);
+    if (s) { s.textContent = '✓ In Sheet'; s.classList.add('pushed'); }
+    updateBanner('ok');
+    toast('✓ Invoice added to Google Sheets', 'success');
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Retry'; }
+    if (errEl) errEl.textContent = e.message;
+    updateBanner('error');
+    toast('Push failed: ' + e.message, 'err');
+  }
+}
+
+async function pushAllToSheets() {
+  if (!webhookUrl) { openSetup(); return; }
+  const unpushed = results.filter(r => !r._pushed);
+  if (!unpushed.length) { toast('All invoices already pushed!'); return; }
+  const btn = document.getElementById('push-all-btn');
+  btn.disabled = true; btn.textContent = '⏳ Pushing…';
+  try {
+    await sendToSheet(unpushed.map(buildRow));
+    unpushed.forEach(d => {
+      d._pushed = true;
+      const s = document.getElementById('push-status-' + d._index);
+      if (s) { s.textContent = '✓ In Sheet'; s.classList.add('pushed'); }
+      const b = document.getElementById('push-btn-' + d._index);
+      if (b) { b.textContent = '✓ Pushed'; b.disabled = true; b.style.background = 'var(--sage)'; b.style.borderColor = 'var(--sage)'; }
+      const er = document.getElementById('card-err-' + d._index);
+      if (er) er.textContent = '';
+    });
+    btn.textContent = '✓ ' + unpushed.length + ' row' + (unpushed.length !== 1 ? 's' : '') + ' pushed!';
+    updateBanner('ok');
+    toast('✓ ' + unpushed.length + ' invoice(s) added to Google Sheets', 'success');
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '📤 Push All to Google Sheets';
+    updateBanner('error');
+    toast('Push failed: ' + e.message, 'err');
+  }
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = type ? ('show ' + type) : 'show';
+  clearTimeout(t._t);
+  t._t = setTimeout(() => { t.className = ''; }, 3500);
+}
+
+document.getElementById('setup-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeSetup();
+});
+
+updateBanner();
+</script>
+</body>
+</html>
